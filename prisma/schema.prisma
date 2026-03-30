@@ -1,0 +1,128 @@
+// ═══════════════════════════════════════════════════════════════════
+// Todoist Clone — Database Schema
+// Prisma 7 + PostgreSQL
+//
+// Design decisions:
+// 1. CASCADE on all parent→child relationships (matches Todoist UX).
+//    - Delete User  → deletes all Projects + Tasks
+//    - Delete Project → deletes all Tasks in that project
+//    - Delete parent Task → deletes all sub-tasks
+//    Future undo/soft-delete can be layered via application logic.
+//
+// 2. userId is denormalized on Task (also lives on Project).
+//    This avoids a JOIN through Project for Today/Upcoming/Overdue
+//    queries that span all projects for a user. The composite index
+//    (userId, completed, dueDate) powers these 3 critical views.
+//    Trade-off: application code must keep userId in sync when moving
+//    a task between projects owned by different users (edge case).
+//
+// 3. dueDate stored as UTC DateTime. Timezone conversion happens on
+//    the client. Filtering Today/Upcoming/Overdue is done by comparing
+//    against UTC day boundaries computed on the server from the
+//    client-provided timezone offset.
+//
+// 4. priority is Int (not enum) — 1=Urgent, 2=High, 3=Medium, 4=None.
+//    Int enables direct comparison operators (e.g. priority <= 2).
+//
+// 5. Self-referencing parentId on Task for sub-tasks. Todoist caps
+//    nesting at 1 level in UI; the schema supports unlimited depth
+//    but the application layer should enforce the business rule.
+// ═══════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── User ──────────────────────────────────────────────────────────
+// Auth-ready model. passwordHash is nullable so the app works without
+// authentication during early development. Will become required when
+// auth (JWT / session) is implemented.
+
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique @db.VarChar(255)
+  name         String  @db.VarChar(255)
+  passwordHash String? @map("password_hash") @db.VarChar(255)
+  avatarUrl    String? @map("avatar_url") @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  projects Project[]
+  tasks    Task[]
+
+  @@map("users")
+}
+
+// ─── Project ───────────────────────────────────────────────────────
+
+model Project {
+  id         String  @id @default(cuid())
+  name       String  @db.VarChar(255)
+  color      String  @default("#808080") @db.VarChar(7)
+  order      Int     @default(0)
+  isFavorite Boolean @default(false) @map("is_favorite")
+
+  // Owner
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tasks Task[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+// ─── Task ──────────────────────────────────────────────────────────
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String    @db.VarChar(500)
+  description String?   @db.Text
+  dueDate     DateTime? @map("due_date")
+  priority    Int       @default(4) // 1=Urgent 2=High 3=Medium 4=None
+  completed   Boolean   @default(false)
+  completedAt DateTime? @map("completed_at")
+  order       Int       @default(0)
+
+  // ── Relations ─────────────────────────────────────────────────
+
+  // Denormalized user reference (avoids JOIN for cross-project queries)
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Project the task belongs to
+  projectId String  @map("project_id")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Self-referencing relationship for sub-tasks
+  parentId String? @map("parent_id")
+  parent   Task?   @relation("SubTasks", fields: [parentId], references: [id], onDelete: Cascade)
+  children Task[]  @relation("SubTasks")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ── Indexes ───────────────────────────────────────────────────
+  // Single-column indexes for basic lookups
+  @@index([projectId])
+  @@index([parentId])
+
+  // Composite index: powers Today / Upcoming / Overdue views
+  // Query pattern: WHERE userId = ? AND completed = false AND dueDate <op> ?
+  @@index([userId, completed, dueDate])
+
+  // Search: B-tree index on title supports startsWith / prefix queries
+  // For full-text search, a GIN index can be added via raw SQL migration later
+  @@index([title])
+
+  @@map("tasks")
+}
