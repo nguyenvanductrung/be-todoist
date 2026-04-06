@@ -31,7 +31,7 @@ export const taskController = {
    */
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const task = await taskService.getById(req.params['id']!, req.userId);
+      const task = await taskService.getById(req.params['id'] as string, req.userId);
       success(res, task);
     } catch (err) {
       next(err);
@@ -57,7 +57,7 @@ export const taskController = {
     try {
       const task = await taskService.createSubTask(
         req.userId,
-        req.params['id']!,
+        req.params['id'] as string,
         req.body as CreateSubTaskInput,
       );
       created(res, task);
@@ -71,7 +71,7 @@ export const taskController = {
    */
   async listSubTasks(req: Request, res: Response, next: NextFunction) {
     try {
-      const subTasks = await taskService.listSubTasks(req.params['id']!, req.userId);
+      const subTasks = await taskService.listSubTasks(req.params['id'] as string, req.userId);
       success(res, subTasks);
     } catch (err) {
       next(err);
@@ -84,7 +84,7 @@ export const taskController = {
   async update(req: Request, res: Response, next: NextFunction) {
     try {
       const task = await taskService.update(
-        req.params['id']!,
+        req.params['id'] as string,
         req.userId,
         req.body as UpdateTaskInput,
       );
@@ -99,7 +99,7 @@ export const taskController = {
    */
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      await taskService.delete(req.params['id']!, req.userId);
+      await taskService.delete(req.params['id'] as string, req.userId);
       noContent(res);
     } catch (err) {
       next(err);
@@ -111,7 +111,7 @@ export const taskController = {
    */
   async toggle(req: Request, res: Response, next: NextFunction) {
     try {
-      const task = await taskService.toggle(req.params['id']!, req.userId);
+      const task = await taskService.toggle(req.params['id'] as string, req.userId);
       success(res, task);
     } catch (err) {
       next(err);

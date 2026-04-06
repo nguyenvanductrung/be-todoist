@@ -2,11 +2,11 @@
   "name": "todoist-clone-backend",
   "version": "0.1.0",
   "description": "Todoist Clone - Backend API (Express + TypeScript + Prisma 7 + PostgreSQL)",
-  "main": "dist/server.js",
+    "main": "dist/src/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

@@ -30,7 +30,7 @@ export const projectController = {
    */
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const project = await projectService.getById(req.params['id']!, req.userId);
+      const project = await projectService.getById(req.params['id'] as string, req.userId);
       success(res, project);
     } catch (err) {
       next(err);
@@ -58,7 +58,7 @@ export const projectController = {
   async update(req: Request, res: Response, next: NextFunction) {
     try {
       const project = await projectService.update(
-        req.params['id']!,
+        req.params['id'] as string,
         req.userId,
         req.body as UpdateProjectInput,
       );
@@ -73,7 +73,7 @@ export const projectController = {
    */
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      await projectService.delete(req.params['id']!, req.userId);
+      await projectService.delete(req.params['id'] as string, req.userId);
       noContent(res);
     } catch (err) {
       next(err);
